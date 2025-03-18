@@ -54,6 +54,8 @@ func main() {
 
 	r.GET("/api/search", searchTracks)
 	r.GET("/api/track/:id", getTrackDetails)
+	r.GET("/api/artist/:id", getArtistDetails)
+	r.GET("/api/artist/:id/top-tracks", getArtistTopTracks)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -184,6 +186,98 @@ func getTrackDetails(c *gin.Context) {
 	resp, err := client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get track details"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		c.JSON(resp.StatusCode, gin.H{"error": "Spotify API error"})
+		return
+	}
+
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func getArtistDetails(c *gin.Context) {
+	artistID := c.Param("id")
+	if artistID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "artist ID is required"})
+		return
+	}
+
+	err := getSpotifyToken()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to authenticate with Spotify"})
+		return
+	}
+
+	artistURL := "https://api.spotify.com/v1/artists/" + artistID
+	req, err := http.NewRequest("GET", artistURL, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+		return
+	}
+
+	req.Header.Set("Authorization", spotifyAuth.TokenType+" "+spotifyAuth.AccessToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get artist details"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		c.JSON(resp.StatusCode, gin.H{"error": "Spotify API error"})
+		return
+	}
+
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func getArtistTopTracks(c *gin.Context) {
+	artistID := c.Param("id")
+	if artistID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "artist ID is required"})
+		return
+	}
+
+	market := c.DefaultQuery("market", "US")
+
+	err := getSpotifyToken()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to authenticate with Spotify"})
+		return
+	}
+
+	topTracksURL := fmt.Sprintf("https://api.spotify.com/v1/artists/%s/top-tracks?market=%s", artistID, market)
+	req, err := http.NewRequest("GET", topTracksURL, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+		return
+	}
+
+	req.Header.Set("Authorization", spotifyAuth.TokenType+" "+spotifyAuth.AccessToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get top tracks"})
 		return
 	}
 	defer resp.Body.Close()
