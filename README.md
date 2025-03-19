@@ -40,7 +40,7 @@ This application provides a REST API interface for accessing music artist inform
 Update the `config.go` file with your API credentials and settings:
 
 ```go
-// Example configuration
+
 type Config struct {
     ClientID     string
     ClientSecret string
